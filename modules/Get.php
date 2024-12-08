@@ -7,9 +7,9 @@ class Get{
     }
     public function getRecipes($id = null)
     {
-        $sqlString = "SELECT * FROM recipe_tbl";
+        $sqlString = "SELECT * FROM recipe_tbl WHERE isdeleted = 0";
         if($id != null){
-            $sqlString .= " WHERE " . $id;
+            $sqlString .= " AND " . $id;
         }
 
         $data = array();
@@ -36,9 +36,34 @@ class Get{
     }
 
 
-public function getIngredient()
+public function getIngredient($id = null)
 {
-    return "This is an ingredient that is retrieved from the database";
+    $sqlString = "SELECT * FROM ingredients_tbl WHERE isdeleted = 0";
+    if($id != null){
+        $sqlString .= " AND " . $id;
+    }
+
+    $data = array();
+    $errmsg = "";
+    $code = 0;
+
+    try {
+        if ($result = $this->pdo->query($sqlString)->fetchALL()) {
+            foreach ($result as $record) {
+                array_push($data, $record);
+            }
+            $result = null;
+            $code = 200;
+            return array("code" => $code, "data" => $data);
+        } else {
+            $errmsg = "No data found";
+            $code = 404;
+        }
+    } catch (\PDOException $e) {
+        $errmsg = $e->getMessage();
+        $code = 403;
+    }
+    return array('code' => $code, 'errmsg' => $errmsg);
 }
 }
 ?>

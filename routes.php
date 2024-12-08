@@ -3,6 +3,7 @@
 require_once "./configs/db.php";
 require_once "./modules/Get.php";
 require_once "./modules/Post.php";
+require_once "./modules/Patch.php";
 
 
 $db = new Connection();
@@ -10,6 +11,7 @@ $pdo = $db->connect();
 
 $post = new Post($pdo);
 $get = new Get($pdo);
+$patch = new Patch($pdo);
 
 if (isset($_REQUEST['request'])) {
     $request = explode("/", $_REQUEST['request']);
@@ -37,7 +39,7 @@ switch ($_SERVER['REQUEST_METHOD']) {
 
             default:
                 http_response_code(401);
-                echo "this is invalid endponit";
+                echo "this is invalid endpoint";
                 break;
         }
 
@@ -47,10 +49,10 @@ switch ($_SERVER['REQUEST_METHOD']) {
         $body = json_decode(file_get_contents("php://input"));
         switch ($request[0]) {
             case "recipes":
-                echo $post->postRecipes();
+                echo json_encode($post->postRecipes($body));
                 break;
             case "ingredients":
-                echo $post->postIngredients();
+                echo json_encode($post->postIngredients($body));
                 break;
 
             default:
@@ -58,9 +60,47 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 echo "this is invalid endpoint";
                 break;
         }
+
         break;
 
-    default:
-        http_response_code(400);
-        echo "Invalid HTTP method";
-}
+        case "PATCH":
+            $body = json_decode(file_get_contents("php://input"));
+            switch ($request[0]) {
+                case "recipes":
+                    echo json_encode($patch->patchIngredients($body, $request[1]));
+                    break;
+                
+                    case "ingredients":
+                        echo json_encode($patch->patchRecipes($body, $request[1]));
+                        break;
+
+                        default:
+                http_response_code(401);
+                echo "this is invalid endpoint";
+                break;
+            }
+
+            case"DELETE":
+                switch ($request[0]) {
+                    case"recipes":
+                        echo json_encode($patch->archiveRecipes($request[1]));
+                        break;
+
+                        case"ingredients":
+                            echo json_encode($patch->archiveRecipes($request[1]));
+                            break;
+                            default:
+                            http_response_code(401);
+                            echo "this is invalid endpoint";
+                            break;
+
+                }
+            
+            break;
+            
+            default:
+            http_response_code(400);
+            echo "Invalid HTTP method";
+
+            break;
+    }
