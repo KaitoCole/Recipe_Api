@@ -16,7 +16,7 @@ class Patch{
     }
 array_push( $values, $id);
     try{
-        $sqlString = "UPDATE recipe_tbl SET name = ?, description = ?, category = ?, cookingtime = ?, servings = ? WHERE id = ?";
+        $sqlString = "UPDATE recipe_tbl SET recipe_name = ?, recipe_description = ?, recipe_category = ?, recipe_cooking_time = ?, recipe_servings = ? WHERE recipe_id = ?";
         $sql = $this->pdo->prepare($sqlString);
         $sql ->execute($values);
         $code = 200;
@@ -42,7 +42,7 @@ array_push( $values, $id);
     }
 array_push($values, $id);
     try{
-        $sqlString = "UPDATE ingredients_tbl SET name = ? WHERE id = ?";
+        $sqlString = "UPDATE ingredients_tbl SET ingredients_name = ? WHERE ingredients_id = ?";
         $sql = $this->pdo->prepare($sqlString);
         $sql ->execute($values);
         $code = 200;

@@ -8,7 +8,6 @@ require_once "./modules/Patch.php";
 
 $db = new Connection();
 $pdo = $db->connect();
-
 $post = new Post($pdo);
 $get = new Get($pdo);
 $patch = new Patch($pdo);
