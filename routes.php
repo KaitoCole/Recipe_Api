@@ -4,6 +4,7 @@ require_once "./configs/db.php";
 require_once "./modules/Get.php";
 require_once "./modules/Post.php";
 require_once "./modules/Patch.php";
+require_once "./modules/Auth.php";
 
 
 $db = new Connection();
@@ -11,6 +12,7 @@ $pdo = $db->connect();
 $post = new Post($pdo);
 $get = new Get($pdo);
 $patch = new Patch($pdo);
+$auth = new Authentication($pdo);
 
 if (isset($_REQUEST['request'])) {
     $request = explode("/", $_REQUEST['request']);
@@ -47,6 +49,12 @@ switch ($_SERVER['REQUEST_METHOD']) {
     case "POST":
         $body = json_decode(file_get_contents("php://input"));
         switch ($request[0]) {
+
+            case 'login':
+                echo json_encode($auth->login($body));
+            case "user":
+                echo json_encode($auth->addAcc($body));
+                break;
             case "recipes":
                 echo json_encode($post->postRecipes($body));
                 break;
