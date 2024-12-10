@@ -11,6 +11,7 @@ define("SERVER", "localhost");
 define("DB", "recipeapi");
 define("USER", "root");
 define("PWORD", "");
+define("TOKEN_KEY","C8A17F3E4C221AC1151F52B53DC44");
 
 class Connection
 {
