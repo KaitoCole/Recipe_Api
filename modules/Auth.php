@@ -7,137 +7,135 @@ class Authentication {
         $this->pdo = $pdo;
     }
 
-    public function isAuthorized() {
-        $headers = array_change_key_case(getallheaders(), CASE_LOWER);
-        return $this->getToken() === $headers['authorization'];
+    public function isAuthorized(){
+        $headers = getallheaders();
+        return $headers['Authorization'] === $this->getUserToken();
     }
-
-    private function getToken() {
-        $headers = array_change_key_case(getallheaders(), CASE_LOWER);
+    
+    private function getUserToken() {
+        $headers = getallheaders();
         $sqlString = "SELECT token FROM accounts_tbl WHERE username=?";
-        try {
             $stmt = $this->pdo->prepare($sqlString);
-            $stmt->execute([$headers['x-auth-user']]);
-            $result = $stmt->fetchAll()[0];
-            return $result['token'];
-        } catch (Exception $e) {
-            echo $e->getMessage();
-        }
-        return "";
+            $stmt->execute([$headers['X-Auth-User']]);
+            $res = $stmt->fetchAll()[0];
+            return $res ['token'];
     }
 
-    private function generateHeader() {
+    private function generateHeader(){
         $header = [
-            "typ" => "JWT",
             "alg" => "HS256",
+            "typ" => "JWT",
             "app" => "recipe_api",
-            "dev" => "Monkey Co"
+            "dev"=> "Monkey Co"
         ];
         return base64_encode(json_encode($header));
     }
 
-    private function generatePayload($user_id, $username) {
+    private function generatePayload($user_id, $username){
         $payload = [
-            "uid" => $user_id,
-            "uc" => $username,
-            "by" => "Alberto and Herrera",
-            "email" => "kianchasetrent@gmail.com",
-            "date" => date("Y-m-d H:i:s"),
+            "the user_id" => $user_id,
+            "username" => $username,
+            "by"=>"Alberto and Herrera",
+            "email"=>"kianchasetrent@gmail.com",
+            "date" => date_create(),
             "exp" => date("Y-m-d H:i:s")
         ];
-        return base64_encode(json_encode($payload));
     }
-
-    private function generateToken($user_id, $username) {
-        $header = $this->generateHeader();
-        $payload = $this->generatePayload($user_id, $username);
-        $signature = hash_hmac("sha256", "$header.$payload", TOKEN_KEY);
+    private function generateToken($user_id, $username){
+        $header = $this ->generateHeader();
+        $payload = $this->generatePayload($user_id, $username);    
+        $signature = hash_hmac('sha256', $header . $payload, TOKEN_KEY);
         return "$header.$payload." . base64_encode($signature);
     }
 
-    private function isSamePassword($inputPassword, $existingHash) {
-        $hash = crypt($inputPassword, $existingHash);
+    private function passchecker($existingHash, $inputpassword) {
+        $hash = crypt($inputpassword, $existingHash);
         return $hash === $existingHash;
     }
 
-    private function encryptPassword($password) {
+    public function encriptor($password) {
         $hashFormat = "$2y$10$";
         $saltLength = 22;
         $salt = $this->generateSalt($saltLength);
         return crypt($password, $hashFormat . $salt);
     }
 
-    private function generateSalt($length) {
+    public function generateSalt($length) {
         $urs = md5(uniqid(mt_rand(), true));
-        $b64String = base64_encode($urs);
-        $mb64String = str_replace("+", ".", $b64String);
+        $base64String = base64_encode($urs);
+        $mb64String = str_replace("+", ".", $base64String);
         return substr($mb64String, 0, $length);
     }
 
-    public function saveToken($token, $username){
-        
+    public function updateToken($token, $username){
         $errmsg = "";
         $code = 0;
-        
+   
         try{
-            $sqlString = "UPDATE accounts_tbl SET token=? WHERE username = ?";
-            $sql = $this->pdo->prepare($sqlString);
-            $sql->execute( [$token, $username] );
+        $sqlString = "UPDATE accounts_tbl SET token = ? WHERE username = ?";
+        $sql = $this->pdo->prepare($sqlString);
+        $sql ->execute([$token, $username]);
+        $code = 200;
+        $data = null;
 
-            $code = 200;
-            $data = null;
-
-            return array("data"=>$data, "code"=>$code);
-        }
-        catch(\PDOException $e){
+        return array("code" => $code, "data" => $data);
+    }
+        catch (\PDOException $e) { 
             $errmsg = $e->getMessage();
             $code = 400;
-        }
-
+        }     
         
-        return array("errmsg"=>$errmsg, "code"=>$code);
-
+        return array("errmsg" => $code,"code"=> $code);
     }
-
 
     public function login($body) {
         $username = $body->username;
         $password = $body->password;
     
-        $code = 401;
-        $payload = null;
-        $remarks = "failed";
-        $message = "User not found";
+        $code = 0;
+        $payload = "";
+        $remarks = "";
+        $message = "";
     
         try {
             $sqlString = "SELECT recipeid, username, password, token FROM accounts_tbl WHERE username=?";
             $stmt = $this->pdo->prepare($sqlString);
+            $stmt->execute([$username]);    
     
-            if ($stmt) {
-                $stmt->execute([$username]);
-                $result = $stmt->fetch();
+            
+            if ($stmt->rowCount()> 0) {
+                $result = $stmt->fetchAll()[0];
+                
     
-                if ($result) {
-                    if ($this->encryptPassword($result['password'], $password)) {
-                        $code = 200;
-                        $remarks = "success";
-                        $message = "Logged in successfully";
-                        $payload = [
-                            "id" => $result['recipeid'],
-                            "username" => $result['username'],
-                            "token" => $result['token']
-                        ];
-                    } else {
-                        $message = "Incorrect Password.";
-                    }
+                if ($this->passchecker($result['password'], $password)) {
+                    $code = 200;
+                    $remarks = "success";
+                    $message = "Logged in successfully";
+
+                    $token= $this->generateToken($result['recipeid'], $result['username']);
+                    $token_arr = explode(".", $token);
+                    $this->updateToken($token_arr[2], $result['username']);
+                    $payload = array("recipeid" => $result['recipeid'], "username" => $result['username'],"token" => $token_arr[2] );
+                } else {
+                    $code = 401;
+                    $remarks = "failed";
+                    $message = "Incorrect Password";
+                    $payload = null;
                 }
+            } else {
+                $code = 401;
+                $remarks = "failed";
+                $message = "User not found";
+                $payload = null;
             }
         } catch (\PDOException $e) {
-            error_log("SQL Error: " . $e->getMessage());
-            return ["errmsg" => $e->getMessage(), "code" => 400];
+            error_log($e->getMessage());
+            $remarks = "failed";
+            $code = 400;
+            $message = "Database error. Please try again later.";
         }
     
-        return ["payload" => $payload, "remarks" => $remarks, "message" => $message, "code" => $code];
+        return array("payload" => $payload, "remarks" => $remarks, "message" => $message, "code" => $code);
     }
     
 
@@ -146,7 +144,7 @@ class Authentication {
         $errmsg = "";
         $code = 0;
 
-        $body->password = $this->encryptPassword($body->password);
+        $body->password = $this->encriptor($body->password);
 
         foreach ($body as $value) {
             array_push($values, $value);
@@ -159,14 +157,15 @@ class Authentication {
 
             $code = 200;
             $data = null;
+            $message = "Data successfully added";
 
-            return ["data" => $data, "code" => $code];
+            return array("data" => $data, "code" => $code, "message" => $message);
         } catch (\PDOException $e) {
             $errmsg = $e->getMessage();
             $code = 400;
         }
 
-        return ["errmsg" => $errmsg, "code" => $code];
+        return array("errmsg" => $errmsg, "code" => $code);
     }
 }
 ?>
