@@ -1,69 +1,58 @@
 <?php
-class Get{
+
+include_once "Common.php";
+class Get extends Common{
     protected $pdo;
 
     public function __construct(\PDO $pdo){
         $this->pdo = $pdo;
     }
-    public function getRecipes($id = null)
-    {
-        $sqlString = "SELECT * FROM recipe_tbl WHERE isdeleted = 0";
+    public function getLogs($date){
+        $filename = "./logs/" . $date . ".log";
+    
+        $logs = array();
+        try{
+            $file = new SplFileObject($filename);
+            while(!$file->eof()){
+                array_push($logs, $file->fgets());
+            }
+            $remarks = "success";
+            $message = "Successfully retrieved logs.";
+        }
+        catch(Exception $e){
+            $remarks = "failed";
+            $message = $e->getMessage();
+        }
+        
+
+        return $this->generateResponse(array("logs"=>$logs), $remarks, $message, 200);
+    }
+    public function getRecipes($id){
+        
+        $condition = "isdeleted = 0";
         if($id != null){
-            $sqlString .= " AND " . $id;
+            $condition .= " AND id=" . $id; 
         }
 
-        $data = array();
-        $errmsg = "";
-        $code = 0;
-
-        try {
-            if ($result = $this->pdo->query($sqlString)->fetchALL()) {
-                foreach ($result as $record) {
-                    array_push($data, $record);
-                }
-                $result = null;
-                $code = 200;
-                return array("code" => $code, "data" => $data);
-            } else {
-                $errmsg = "No data found";
-                $code = 404;
-            }
-        } catch (\PDOException $e) {
-            $errmsg = $e->getMessage();
-            $code = 403;
+        $result = $this->getDataByTable('recipe_tbl', $condition, $this->pdo);
+        if($result['code'] == 200){
+            return $this->generateResponse($result['data'], "success", "Successfully retrieved Recipes.", $result['code']);
         }
-        return array('code' => $code, 'errmsg' => $errmsg);
+        return $this->generateResponse(null, "failed", $result['errmsg'], $result['code']);
     }
-
-
-public function getIngredient($id = null)
-{
-    $sqlString = "SELECT * FROM ingredients_tbl WHERE isdeleted = 0";
-    if($id != null){
-        $sqlString .= " AND " . $id;
-    }
-
-    $data = array();
-    $errmsg = "";
-    $code = 0;
-
-    try {
-        if ($result = $this->pdo->query($sqlString)->fetchALL()) {
-            foreach ($result as $record) {
-                array_push($data, $record);
-            }
-            $result = null;
-            $code = 200;
-            return array("code" => $code, "data" => $data);
-        } else {
-            $errmsg = "No data found";
-            $code = 404;
+    
+    public function getIngredients($id){
+        $condition = "isdeleted = 0";
+        if($id != null){
+            $condition .= " AND id=" . $id; 
         }
-    } catch (\PDOException $e) {
-        $errmsg = $e->getMessage();
-        $code = 403;
+
+        $result = $this->getDataByTable('Ingredients_tbl', $condition, $this->pdo);
+
+        if($result['code'] == 200){
+            return $this->generateResponse($result['data'], "success", "Successfully retrieved Ingredients.", $result['code']);
+        }
+        return $this->generateResponse(null, "failed", $result['errmsg'], $result['code']);
     }
-    return array('code' => $code, 'errmsg' => $errmsg);
-}
 }
 ?>

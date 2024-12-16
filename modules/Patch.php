@@ -11,8 +11,8 @@ class Patch{
         $errmsg = "";
         $code = 0;
 
-    foreach($body as $values){
-        array_push($values, $values);
+    foreach($body as $value){
+        array_push($values, $value);
     }
 array_push( $values, $id);
     try{

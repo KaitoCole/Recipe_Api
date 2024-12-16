@@ -5,7 +5,7 @@ require_once "./modules/Get.php";
 require_once "./modules/Post.php";
 require_once "./modules/Patch.php";
 require_once "./modules/Auth.php";
-
+require_once "./modules/Crypt.php";
 
 $db = new Connection();
 $pdo = $db->connect();
@@ -13,6 +13,7 @@ $post = new Post($pdo);
 $get = new Get($pdo);
 $patch = new Patch($pdo);
 $auth = new Authentication($pdo);
+$crypt = new Crypt();
 
 if (isset($_REQUEST['request'])) {
     $request = explode("/", $_REQUEST['request']);
@@ -27,16 +28,17 @@ switch ($_SERVER['REQUEST_METHOD']) {
         switch ($request[0]) {
 
             case "recipes":
-                if (count($request) > 1) {
-                    echo json_encode($get->getRecipes($request[1]));
-                }
-                else {
-                    echo json_encode($get->getRecipes());
-                }
+                $dataString = json_encode($get->getRecipes($request[1] ?? null));
+                    echo $crypt->encryptData($dataString);
                 break;
             case "ingredients":
-                echo json_encode($get->getIngredient());
+                $dataString = json_encode($get->getIngredients($request[1] ?? null));
+                    echo $crypt->encryptData($dataString);
                 break;
+
+            case "log":
+                echo json_encode($get->getLogs($request[1] ?? date("Y-m-d")));
+            break;
 
             default:
                 http_response_code(401);
@@ -52,8 +54,9 @@ switch ($_SERVER['REQUEST_METHOD']) {
 
             case 'login':
                 echo json_encode($auth->login($body));
+                break;
             case "user":
-                echo json_encode($auth->addAcc($body));
+                echo json_encode($auth->addAccount($body));
                 break;
             case "recipes":
                 echo json_encode($post->postRecipes($body));

@@ -1,105 +1,108 @@
 <?php
-class Authentication
-{
+class Authentication{
 
     protected $pdo;
+    
 
-    public function __construct(\PDO $pdo)
-    {
+    public function __construct(\PDO $pdo){
         $this->pdo = $pdo;
     }
 
-    public function isAuthorized()
-    {
-        $headers = getallheaders();
-        return $headers['Authorization'] === $this->getUserToken();
+    public function isAuthorized(){
+        //compare request token to db token
+        $headers = array_change_key_case(getallheaders(),CASE_LOWER);
+        return $this->getToken() === $headers['authorization'];
     }
 
-    private function getUserToken()
-    {
-        $headers = getallheaders();
+    private function getToken(){
+        $headers = array_change_key_case(getallheaders(),CASE_LOWER);
+
         $sqlString = "SELECT token FROM accounts_tbl WHERE username=?";
-        $stmt = $this->pdo->prepare($sqlString);
-        $stmt->execute([$headers['X-Auth-User']]);
-        $res = $stmt->fetchAll()[0];
-        return $res['token'];
+        try{
+            $stmt = $this->pdo->prepare($sqlString);
+            $stmt->execute([$headers['x-auth-user']]);
+            $result = $stmt->fetchAll()[0];
+            return $result['token'];
+        }
+        catch(Exception $e){
+            echo $e->getMessage();
+        }
+        return "";
     }
 
-    private function generateHeader()
-    {
+    private function generateHeader(){
         $header = [
-            "alg" => "HS256",
             "typ" => "JWT",
-            "app" => "recipe_api",
-            "dev" => "Monkey Co"
+            "alg" => "HS256",
+            "app" => "ChefHub",
+            "dev" => "Loudel M. Manaloto"
         ];
         return base64_encode(json_encode($header));
     }
 
-    private function generatePayload($user_id, $username)
-    {
+    private function generatePayload($id, $username){
         $payload = [
-            "the user_id" => $user_id,
-            "username" => $username,
-            "by" => "Alberto and Herrera",
-            "email" => "kianchasetrent@gmail.com",
+            "uid" => $id,
+            "uc" => $username,
+            "email" => "manaloto.loudel@gordoncollege.edu.ph",
             "date" => date_create(),
             "exp" => date("Y-m-d H:i:s")
         ];
+        return base64_encode(json_encode($payload));
     }
-    private function generateToken($user_id, $username)
-    {
+
+    private function generateToken($id, $username){
         $header = $this->generateHeader();
-        $payload = $this->generatePayload($user_id, $username);
-        $signature = hash_hmac('sha256', $header . $payload, TOKEN_KEY);
+        $payload = $this->generatePayload($id, $username);
+        $signature = hash_hmac("sha256", "$header.$payload", TOKEN_KEY);
         return "$header.$payload." . base64_encode($signature);
     }
 
-    private function passchecker($existingHash, $inputpassword)
-    {
-        $hash = crypt($inputpassword, $existingHash);
+    private function isSamePassword($inputPassword, $existingHash){
+        $hash = crypt($inputPassword, $existingHash);
         return $hash === $existingHash;
     }
 
-    public function encriptor($password)
-    {
-        $hashFormat = "$2y$10$";
+    private function encryptPassword($password){
+        $hashFormat = "$2y$10$"; //blowfish
         $saltLength = 22;
         $salt = $this->generateSalt($saltLength);
         return crypt($password, $hashFormat . $salt);
     }
 
-    public function generateSalt($length)
-    {
+    private function generateSalt($length){
         $urs = md5(uniqid(mt_rand(), true));
-        $base64String = base64_encode($urs);
-        $mb64String = str_replace("+", ".", $base64String);
+        $b64String = base64_encode($urs);
+        $mb64String = str_replace("+", ".", $b64String);
         return substr($mb64String, 0, $length);
     }
 
-    public function updateToken($token, $username)
-    {
+    public function saveToken($token, $username){
+        
         $errmsg = "";
         $code = 0;
-
-        try {
-            $sqlString = "UPDATE accounts_tbl SET token = ? WHERE username = ?";
+        
+        try{
+            $sqlString = "UPDATE accounts_tbl SET token=? WHERE username = ?";
             $sql = $this->pdo->prepare($sqlString);
-            $sql->execute([$token, $username]);
+            $sql->execute( [$token, $username] );
+
             $code = 200;
             $data = null;
 
-            return array("code" => $code, "data" => $data);
-        } catch (\PDOException $e) {
+            return array("data"=>$data, "code"=>$code);
+        }
+        catch(\PDOException $e){
             $errmsg = $e->getMessage();
             $code = 400;
         }
 
-        return array("errmsg" => $code, "code" => $code);
+        
+        return array("errmsg"=>$errmsg, "code"=>$code);
+
     }
 
-    public function login($body)
-    {
+    public function login($body){
         $username = $body->username;
         $password = $body->password;
 
@@ -108,74 +111,85 @@ class Authentication
         $remarks = "";
         $message = "";
 
-        try {
-            $sqlString = "SELECT user_id, username, password, token FROM accounts_tbl WHERE username=?";
+        try{
+           
+            $sqlString = "SELECT recipe_id, username, password, token FROM accounts_tbl WHERE username=?";
             $stmt = $this->pdo->prepare($sqlString);
             $stmt->execute([$username]);
-
-
-            if ($stmt->rowCount() > 0) {
+        
+            if($stmt->rowCount() > 0){
                 $result = $stmt->fetchAll()[0];
-
-                if ($this->passchecker($password, $result['password'],)) {
-                    $code = 200;
-                    $remarks = "success";
-                    $message = "Logged in successfully";
-
-                    $token = $this->generateToken($result['user_id'], $result['username']);
-                    $token_arr = explode(".", $token);
-                    $this->updateToken($token_arr[2], $result['username']);
-                    $payload = array("user_id" => $result['user_id'], "username" => $result['username'], "token" => $token_arr[2]);
+        
+        
+                if($this->isSamePassword($password, $result['password'])){
+                    error_log("Password matched, generating token...");
+                    $token = $this->generateToken($result['recipe_id'], $result['username']);
+                    $token_arr = explode('.', $token);
+                    $this->saveToken($token_arr[2], $result['username']);
+        
+                   
+                    error_log("Generated Token: " . $token);
+                    
+                    $payload = array("recipe_id"=>$result['recipe_id'], "username"=>$result['username'], "token"=>$token_arr[2]);
                 } else {
+                    
                     $code = 401;
-                    $remarks = "failed";
-                    $message = "Incorrect Password";
                     $payload = null;
+                    $remarks = "failed";
+                    $message = "Incorrect Password.";
                 }
             } else {
+                
                 $code = 401;
-                $remarks = "failed";
-                $message = "User not found";
                 $payload = null;
+                $remarks = "failed";
+                $message = "Username does not exist.";
             }
         } catch (\PDOException $e) {
-            error_log($e->getMessage());
+            $message = $e->getMessage();
             $remarks = "failed";
             $code = 400;
-            $message = "Database error. Please try again later.";
         }
-
-        return array("payload" => $payload, "remarks" => $remarks, "message" => $message, "code" => $code);
+        return array("payload"=>$payload, "remarks"=>$remarks, "message"=>$message, "code"=>$code);
     }
 
 
-    public function addAcc($body)
-    {
+    public function addAccount($body){
         $values = [];
         $errmsg = "";
         $code = 0;
 
-        $body->password = $this->encriptor($body->password);
 
-        foreach ($body as $value) {
+
+        $body->password = $this->encryptPassword($body->password);
+
+        foreach($body as $value){
             array_push($values, $value);
         }
-
-        try {
-            $sqlString = "INSERT INTO accounts_tbl (username, password) VALUES (?,?)";
+        
+        try{
+            $sqlString = "INSERT INTO accounts_tbl(recipe_id, username, password) VALUES (?,?,?)";
             $sql = $this->pdo->prepare($sqlString);
             $sql->execute($values);
 
             $code = 200;
             $data = null;
-            $message = "Data successfully added";
 
-            return array("data" => $data, "code" => $code, "message" => $message);
-        } catch (\PDOException $e) {
+            return array("data"=>$data, "code"=>$code);
+        }
+        catch(\PDOException $e){
             $errmsg = $e->getMessage();
             $code = 400;
         }
 
-        return array("errmsg" => $errmsg, "code" => $code);
+        
+        return array("errmsg"=>$errmsg, "code"=>$code);
+
     }
+
 }
+
+
+
+
+?>

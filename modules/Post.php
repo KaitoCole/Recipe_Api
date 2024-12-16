@@ -1,5 +1,7 @@
 <?php
-class Post{
+
+include_once "Common.php";
+class Post extends Common{
     protected $pdo;
 
     public function __construct(\PDO $pdo) {
@@ -7,57 +9,23 @@ class Post{
     }
 
     public function postRecipes($body){
-        $values = [];
-        $errmsg = "";
-        $code = 0;
-
-    foreach($body as $value){
-        array_push($values, $value);
-    }
-
-    try{
-        $sqlString = "INSERT INTO recipe_tbl (recipe_name, recipe_description, recipe_category, recipe_cooking_time, recipe_servings) VALUES (?,?,?,?,?)";
-        $sql = $this->pdo->prepare($sqlString);
-        $sql ->execute($values);
-        $code = 200;
-        $message = "data succesfully added";
-        $data = null;
-
-        return array("code" => $code,"message" => $message, "data" => $data);
-    }
-        catch (\PDOException $e) { 
-            $errmsg = $e->getMessage();
-            $code = 400;
-        }     
-        
-        return array("errmsg" => $code,"code"=> $code);
-    }
-
-
-    public function postIngredients($body){
-        $values = [];
-        $errmsg = "";
-        $code = 0;
-
-    foreach($body as $values){
-        array_push($values, $values);
-    }
-     try{
-        $sqlString = "INSERT INTO ingredients_tbl (ingredients_name) VALUES (?)";
-        $sql = $this->pdo->prepare($sqlString);
-        $sql ->execute($values);
-        $code = 200;
-        $data = null;
-
-        return array("code" => $code, "data" => $data);
-    }
-        catch (\PDOException $e) { 
-            $errmsg = $e->getMessage();
-            $code = 400;
-        }     
-        
-        return array("errmsg" => $code,"code"=> $code);
-    }
-
-}
+        $result = $this->postData("recipe_tbl", $body, $this->pdo);
+        if($result['code'] == 200){
+          $this->logger("KaitoCole", "POST", "Created a new recipe");
+          return $this->generateResponse($result['data'], "success", "Successfully created a recipe.", $result['code']);
+        }
+        $this->logger("KaitoCole", "POST", $result['errmsg']);
+        return $this->generateResponse(null, "failed", $result['errmsg'], $result['code']);
+      }
+  
+      public function postIngredients($body){
+         $result = $this->postData("ingredients_tbl", $body, $this->pdo);
+         if($result['code'] == 200){
+          $this->logger("KaitoCole", "POST", "Created a new Ingredient record");
+          return $this->generateResponse($result['data'], "success", "Successfully created a Ingredient record.", $result['code']);
+        }
+        return $this->generateResponse(null, "failed", $result['errmsg'], $result['code']);
+      }
+  }
+  
 ?>
