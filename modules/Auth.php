@@ -17,7 +17,7 @@ class Authentication{
     private function getToken(){
         $headers = array_change_key_case(getallheaders(),CASE_LOWER);
 
-        $sqlString = "SELECT token FROM accounts_tbl WHERE username=?";
+        $sqlString = "SELECT token FROM users_tbl WHERE username=?";
         try{
             $stmt = $this->pdo->prepare($sqlString);
             $stmt->execute([$headers['x-auth-user']]);
@@ -83,7 +83,7 @@ class Authentication{
         $code = 0;
         
         try{
-            $sqlString = "UPDATE accounts_tbl SET token=? WHERE username = ?";
+            $sqlString = "UPDATE users_tbl SET token=? WHERE username = ?";
             $sql = $this->pdo->prepare($sqlString);
             $sql->execute( [$token, $username] );
 
@@ -113,7 +113,7 @@ class Authentication{
 
         try{
            
-            $sqlString = "SELECT recipe_id, username, password, token FROM accounts_tbl WHERE username=?";
+            $sqlString = "SELECT user_id, username, password, token FROM users_tbl WHERE username=?";
             $stmt = $this->pdo->prepare($sqlString);
             $stmt->execute([$username]);
         
@@ -123,14 +123,14 @@ class Authentication{
         
                 if($this->isSamePassword($password, $result['password'])){
                     error_log("Password matched, generating token...");
-                    $token = $this->generateToken($result['recipe_id'], $result['username']);
+                    $token = $this->generateToken($result['user_id'], $result['username']);
                     $token_arr = explode('.', $token);
                     $this->saveToken($token_arr[2], $result['username']);
         
                    
                     error_log("Generated Token: " . $token);
                     
-                    $payload = array("recipe_id"=>$result['recipe_id'], "username"=>$result['username'], "token"=>$token_arr[2]);
+                    $payload = array("user_id"=>$result['user_id'], "username"=>$result['username'], "token"=>$token_arr[2]);
                 } else {
                     
                     $code = 401;
@@ -168,7 +168,7 @@ class Authentication{
         }
         
         try{
-            $sqlString = "INSERT INTO accounts_tbl(recipe_id, username, password) VALUES (?,?,?)";
+            $sqlString = "INSERT INTO users_tbl(user_id, username, password) VALUES (?,?,?)";
             $sql = $this->pdo->prepare($sqlString);
             $sql->execute($values);
 
