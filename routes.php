@@ -7,6 +7,7 @@ require_once "./modules/Patch.php";
 require_once "./modules/Auth.php";
 require_once "./modules/Crypt.php";
 
+
 $db = new Connection();
 $pdo = $db->connect();
 $post = new Post($pdo);
@@ -33,6 +34,11 @@ switch ($_SERVER['REQUEST_METHOD']) {
                 break;
             case "ingredients":
                 $dataString = json_encode($get->getIngredients($request[1] ?? null));
+                    echo $crypt->encryptData($dataString);
+                break;
+
+                case "favorites":
+                    $dataString = json_encode($get->getFavorites($request[1]?? null));
                     echo $crypt->encryptData($dataString);
                 break;
 
